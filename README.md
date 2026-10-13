@@ -1,0 +1,114 @@
+# Traffic Sign Detection on GTSDB
+
+Computer Vision 2026 — first working baseline for traffic-sign object detection.
+
+The project fine-tunes a COCO-pretrained **YOLOv8s** detector on the **German Traffic Sign Detection Benchmark (GTSDB)** to localize and classify traffic signs into 43 classes. The current submission includes dataset preparation, two-stage training, and validation evaluation. Faster R-CNN and resolution comparisons are not part of this baseline release.
+
+## Dataset and preprocessing
+
+GTSDB contains 900 road-scene images (1360 × 800). The code uses the original road scenes, not the additional cropped sign images in the archive. `data/download.py` downloads and extracts the dataset; `data/prepare.py` converts PPM images to PNG, checks `gt.txt` boxes and class IDs, and exports YOLO labels and COCO JSON annotations.
+
+| Split | Images | Annotated signs |
+| --- | ---: | ---: |
+| Train | 480 | 712 |
+| Validation | 120 | 140 |
+| Test (reserved) | 300 | 361 |
+
+The train/validation split uses shuffled blocks of 30 neighboring image IDs (seed 42). The test set was not used for the initial results. All 43 classes appear in training; 28 appear in validation. Some images have no annotated signs.
+
+## Setup
+
+Use a Python environment with a CUDA-capable PyTorch installation for GPU training. The reported run used **Python 3.14.6**, **PyTorch 2.11.0+cu128**, **Ultralytics 8.4.177**, and **NVIDIA GeForce RTX 5060 Ti (16 GB)**.
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+For GPU execution, verify that your PyTorch build supports your GPU:
+
+```powershell
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
+
+## Prepare the data
+
+Run from the repository root:
+
+```powershell
+python data/download.py
+python data/prepare.py
+```
+
+`prepare.py` regenerates `configs/gtsdb.yaml` with the absolute location of `data/processed` on the **current machine**. Run it after cloning the repository on a new machine before training or evaluating; the committed config may contain a path from a different computer.
+
+The raw and processed images are excluded from Git because of their size. The frozen split filenames are in `data/splits/`.
+
+## Train the baseline
+
+Two sequential fine-tuning phases are implemented in `src/train_yolo.py`:
+
+- **Phase A:** 5 epochs, first 10 YOLOv8 modules (backbone) frozen; AdamW; initial learning rate `0.001`.
+- **Phase B:** initialized from the best Phase A weights; full-model fine-tuning for up to 95 epochs; AdamW; initial learning rate `0.0001`; early stopping patience `20`.
+
+Both phases use input size `640`, batch size `16`, seed `42`, cosine learning-rate scheduling, and no horizontal flipping. The best and latest checkpoints are saved locally; Phase B also requests an additional checkpoint every five epochs.
+
+```powershell
+python -u src/train_yolo.py --phase all --device 0 --batch 16
+```
+
+Or run phases separately:
+
+```powershell
+python -u src/train_yolo.py --phase a --device 0 --batch 16
+python -u src/train_yolo.py --phase b --device 0 --batch 16
+```
+
+The final baseline weights are written to:
+
+```text
+runs/phase_b/weights/best.pt
+```
+
+**Weights are not tracked in Git.** To reproduce evaluation from a fresh clone, train the model first or supply the trained `best.pt` file at that path. GPU availability and training time depend on your hardware.
+
+## Validation evaluation
+
+Evaluate the best checkpoint on the validation split (not the reserved test split):
+
+```powershell
+python -u src/evaluate.py --split val --device 0 --batch 16 --samples 20
+```
+
+The script saves metrics, evaluation plots, COCO-style prediction output, and 20 sample annotated predictions under `results/baseline/`.
+
+### Initial quantitative results
+
+The reported baseline completed 5 epochs of Phase A and **41 epochs of Phase B**. Early stopping selected Phase B epoch **21** as the best checkpoint.
+
+| Validation metric | Result |
+| --- | ---: |
+| Precision | 0.4176 |
+| Recall | 0.4035 |
+| mAP@0.50 | 0.4120 |
+| mAP@0.50:0.95 | 0.3377 |
+
+These figures use the Ultralytics evaluator on **120 validation images / 140 annotated signs**. The separate COCO-style evaluation reported AP@0.50:0.95 of `0.340`, with `0.275` for small, `0.510` for medium, and `0.767` for large signs. Results from the two evaluators are reported separately because their settings/implementations can differ slightly.
+
+## Implementation observations
+
+- Small signs are substantially harder to detect than large signs in the baseline evaluation.
+- GTSDB is class-imbalanced; only 28 of 43 classes are represented in the validation split, so rare-class results are unstable.
+- Ultralytics detected and removed one duplicate label associated with image `00340.png` at training time. The source annotation is not yet deduplicated in `data/prepare.py`.
+
+## Repository files
+
+```text
+configs/gtsdb.yaml          Dataset configuration (regenerated by prepare.py)
+data/download.py            Download GTSDB
+data/prepare.py             Validate, convert and split dataset
+data/splits/               Saved image split lists
+src/train_yolo.py           Two-phase YOLOv8s fine-tuning
+src/evaluate.py             Validation metrics and prediction images
+results/baseline/           Saved evaluation outputs, when committed
+requirements.txt           Python dependencies
+```
