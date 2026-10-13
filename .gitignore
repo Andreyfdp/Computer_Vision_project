@@ -1,0 +1,9 @@
+*.zip
+data/raw/
+data/processed/
+runs/
+*.pt
+*.pth
+.venv/
+.idea/
+__pycache__/
