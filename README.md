@@ -112,3 +112,43 @@ src/evaluate.py             Validation metrics and prediction images
 results/baseline/           Saved evaluation outputs, when committed
 requirements.txt           Python dependencies
 ```
+
+## Pretrained Baseline Checkpoint
+
+The trained YOLOv8s baseline is available as a GitHub Release:
+
+[Download YOLOv8s baseline (best.pt)](https://github.com/Andreyfdp/Computer_Vision_project/releases/download/baseline-v1.0/best.pt)
+
+The model was fine-tuned on GTSDB (43 classes) using two training phases:
+- Phase A: 5 epochs with frozen backbone.
+- Phase B: 41 epochs of full fine-tuning with early stopping.
+
+### Reproduce validation results
+
+Download `best.pt` and place it at:
+
+`runs/phase_b/weights/best.pt`
+
+Prepare the dataset:
+
+```powershell
+python data/download.py
+python data/prepare.py
+```
+
+Run evaluation:
+
+```powershell
+python src/evaluate.py --split val --device 0 --batch 16
+```
+
+### Baseline validation metrics
+
+| Metric | Value |
+|---|---|
+| Precision | 0.4176 |
+| Recall | 0.4035 |
+| mAP@0.5 | 0.4120 |
+| mAP@0.5:0.95 | 0.3377 |
+
+Evaluation was performed on 120 validation images containing 140 annotated objects.
