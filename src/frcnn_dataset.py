@@ -71,15 +71,20 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-def resolve_images_dir(project_root: Path) -> Path:
-    candidates = [
+def resolve_images_dir(project_root: Path, split: str, override: Path | None = None) -> Path:
+    candidates = []
+    if override is not None:
+        override = Path(override)
+        candidates.extend([override / split, override])
+    candidates.extend([
+        project_root / "data" / "processed" / "images" / split,
         project_root / "data" / "processed" / "images",
         project_root / "data" / "processed",
-    ]
+    ])
     for candidate in candidates:
         if candidate.exists() and any(candidate.glob("*.png")):
             return candidate
+    checked = "\n".join(f"  - {p}" for p in candidates)
     raise FileNotFoundError(
-        "Could not find processed PNG images. Expected data/processed/images/*.png "
-        "or data/processed/*.png. Pass --images-dir explicitly."
+        f"Could not find processed PNG images for split '{split}'. Checked:\n{checked}"
     )

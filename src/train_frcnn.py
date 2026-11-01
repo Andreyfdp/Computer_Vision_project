@@ -122,7 +122,8 @@ def main():
     set_seed(args.seed)
 
     project_root = Path(__file__).resolve().parents[1]
-    images_dir = args.images_dir or resolve_images_dir(project_root)
+    train_images_dir = resolve_images_dir(project_root, "train", args.images_dir)
+    val_images_dir = resolve_images_dir(project_root, "val", args.images_dir)
     train_json = args.train_json if args.train_json.is_absolute() else project_root / args.train_json
     val_json = args.val_json if args.val_json.is_absolute() else project_root / args.val_json
     output_dir = args.output_dir if args.output_dir.is_absolute() else project_root / args.output_dir
@@ -136,8 +137,8 @@ def main():
     if device.type == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(device)}")
 
-    train_ds = GTSDBCocoDataset(images_dir, train_json, train=True, seed=args.seed)
-    val_ds = GTSDBCocoDataset(images_dir, val_json, train=False, seed=args.seed)
+    train_ds = GTSDBCocoDataset(train_images_dir, train_json, train=True, seed=args.seed)
+    val_ds = GTSDBCocoDataset(val_images_dir, val_json, train=False, seed=args.seed)
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
                               collate_fn=collate_fn, pin_memory=device.type == "cuda")
     val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=args.num_workers,

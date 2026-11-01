@@ -33,7 +33,7 @@ def build_model():
 def main():
     args = parse_args()
     project_root = Path(__file__).resolve().parents[1]
-    images_dir = args.images_dir or resolve_images_dir(project_root)
+    images_dir = resolve_images_dir(project_root, args.split, args.images_dir)
     ann = project_root / f"data/processed/instances_{args.split}.json"
     output = args.output if args.output.is_absolute() else project_root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
