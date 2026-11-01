@@ -13,10 +13,12 @@ SPLITS_DIR = ROOT / "data" / "splits"
 
 NUM_CLASSES = 43
 SEED = 42
+DUPLICATE_ANNOTATIONS_REMOVED = 0
 WIDTH, HEIGHT = 1360, 800
 
 
 def load_annotations():
+    global DUPLICATE_ANNOTATIONS_REMOVED
     annotations = defaultdict(list)
 
     with (RAW / "gt.txt").open(encoding="utf-8") as f:
@@ -40,7 +42,11 @@ def load_annotations():
             if not (RAW / filename).is_file():
                 raise FileNotFoundError(filename)
 
-            annotations[filename].append((x1, y1, x2, y2, cls))
+            annotation = (x1, y1, x2, y2, cls)
+            if annotation in annotations[filename]:
+                DUPLICATE_ANNOTATIONS_REMOVED += 1
+                continue
+            annotations[filename].append(annotation)
 
     return annotations
 
@@ -199,6 +205,7 @@ def main():
         encoding="utf-8",
     )
 
+    print(f"\nExact duplicate annotations removed: {DUPLICATE_ANNOTATIONS_REMOVED}")
     print("\nPreprocessing complete.")
     print("YOLO config: configs/gtsdb.yaml")
     print("COCO annotations: data/processed/instances_*.json")
