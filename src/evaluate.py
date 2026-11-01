@@ -116,45 +116,56 @@ def collect_predictions(model, image_paths, filename_to_id, category_ids,
 
     start = time.perf_counter()
     seen = 0
-    for result in model.predict(
-        source=[str(path) for path in image_paths],
-        imgsz=imgsz,
-        batch=batch,
-        device=device,
-        conf=conf,
-        iou=nms_iou,
-        max_det=max_det,
-        stream=True,
-        verbose=False,
-    ):
-        filename = Path(result.path).name
-        if filename not in filename_to_id:
-            raise KeyError(f"Prediction image is absent from COCO GT: {filename}")
-        image_id = filename_to_id[filename]
-        boxes = result.boxes
-        if boxes is not None and len(boxes):
-            xyxy = boxes.xyxy.detach().cpu().numpy()
-            scores = boxes.conf.detach().cpu().numpy()
-            classes = boxes.cls.detach().cpu().numpy().astype(int)
-            for box, score, class_id in zip(xyxy, scores, classes):
-                category_id = int(class_id)
-                if category_id not in category_ids:
-                    raise ValueError(
-                        f"Model class {category_id} is not a COCO category. "
-                        "Check the model/data class mapping."
-                    )
-                x1, y1, x2, y2 = map(float, box)
-                predictions.append({
-                    "image_id": image_id,
-                    "category_id": category_id,
-                    "bbox": [x1, y1, max(0.0, x2 - x1), max(0.0, y2 - y1)],
-                    "score": float(score),
-                })
-        if filename in selected_samples:
-            result.save(filename=str(sample_dir / filename))
-        seen += 1
-        if seen % 50 == 0 or seen == len(image_paths):
-            print(f"Inference: {seen}/{len(image_paths)} images")
+    for chunk_start in range(0, len(image_paths), batch):
+        chunk = image_paths[chunk_start:chunk_start + batch]
+        results = model.predict(
+            source=[str(path) for path in chunk],
+            imgsz=imgsz,
+            batch=len(chunk),
+            device=device,
+            conf=conf,
+            iou=nms_iou,
+            max_det=max_det,
+            stream=False,
+            verbose=False,
+        )
+        if len(results) != len(chunk):
+            raise RuntimeError(
+                f"Ultralytics returned {len(results)} results for a chunk of {len(chunk)} images"
+            )
+        for result in results:
+            filename = Path(result.path).name
+            if filename not in filename_to_id:
+                raise KeyError(f"Prediction image is absent from COCO GT: {filename}")
+            image_id = filename_to_id[filename]
+            boxes = result.boxes
+            if boxes is not None and len(boxes):
+                xyxy = boxes.xyxy.detach().cpu().numpy()
+                scores = boxes.conf.detach().cpu().numpy()
+                classes = boxes.cls.detach().cpu().numpy().astype(int)
+                for box, score, class_id in zip(xyxy, scores, classes):
+                    category_id = int(class_id)
+                    if category_id not in category_ids:
+                        raise ValueError(
+                            f"Model class {category_id} is not a COCO category. "
+                            "Check the model/data class mapping."
+                        )
+                    x1, y1, x2, y2 = map(float, box)
+                    predictions.append({
+                        "image_id": image_id,
+                        "category_id": category_id,
+                        "bbox": [x1, y1, max(0.0, x2 - x1), max(0.0, y2 - y1)],
+                        "score": float(score),
+                    })
+            if filename in selected_samples:
+                result.save(filename=str(sample_dir / filename))
+            seen += 1
+            if seen % 50 == 0 or seen == len(image_paths):
+                print(f"Inference: {seen}/{len(image_paths)} images")
+
+        del results
+        if torch.cuda.is_available() and str(device) != "cpu":
+            torch.cuda.empty_cache()
 
     elapsed = time.perf_counter() - start
     if seen != len(image_paths):
