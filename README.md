@@ -81,6 +81,70 @@ This experiment isolates the effect of input resolution.
 
 ---
 
+# Model Checkpoints and Releases
+
+The best checkpoints for all three final experimental conditions are published through GitHub Releases.
+
+| Experiment | Model | Release | Checkpoint |
+|---|---|---|---|
+| E0 | YOLOv8s, 640 px | `baseline-v1.0` | `best.pt` |
+| E1 | Faster R-CNN ResNet-50-FPN | `e1-faster-rcnn-v1.0` | `best.pt` |
+| E2 | YOLOv8s, 1280 px | `e2-1280-v1.0` | `best.pt` |
+
+Each release contains the best checkpoint selected using validation performance.
+
+### E0 — YOLOv8s 640
+
+Release:
+
+```text
+baseline-v1.0
+```
+
+Checkpoint:
+
+```text
+best.pt
+```
+
+### E1 — Faster R-CNN ResNet-50-FPN
+
+Release:
+
+```text
+e1-faster-rcnn-v1.0
+```
+
+Checkpoint:
+
+```text
+best.pt
+```
+
+The local checkpoint used to create this release is:
+
+```text
+runs/e1_seed0_phase_b/best.pt
+```
+
+### E2 — YOLOv8s 1280
+
+Release:
+
+```text
+e2-1280-v1.0
+```
+
+Checkpoint:
+
+```text
+best.pt
+```
+
+The final test results reported below were obtained using these released checkpoints.
+
+---
+
 ## Common Evaluation
 
 All models are evaluated using the same COCO-style evaluator based on `pycocotools`.
