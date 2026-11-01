@@ -220,6 +220,8 @@ Faster R-CNN is approximately **1.85× slower than E2**, has almost four times m
 
 Therefore, E2 provides the best accuracy-efficiency trade-off.
 
+**Timing methodology note:** YOLO timing includes image loading and preprocessing, whereas Faster R-CNN timing excludes them. Therefore, cross-model latency and throughput comparisons should be treated as approximate rather than strictly equivalent end-to-end measurements.
+
 ---
 
 # Failure Analysis
@@ -352,6 +354,14 @@ pandas
 ---
 
 ## 2. Prepare Dataset
+
+Download the GTSDB dataset:
+
+```bash
+python data/download.py
+```
+
+Then run preprocessing:
 
 ```bash
 python data/prepare.py
