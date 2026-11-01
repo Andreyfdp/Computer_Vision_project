@@ -112,9 +112,14 @@ def main():
     output_path = Path(args.output).resolve()
     if not yaml_path.is_file() or not pred_path.is_file():
         raise FileNotFoundError(f"Missing input: yaml={yaml_path.is_file()}, predictions={pred_path.is_file()}")
-    gt_path = resolve_dataset_dir(yaml_path) / f"instances_{args.split}.json"
+    project_root = Path(__file__).resolve().parents[1]
+    local_gt_path = project_root / "data" / "processed" / f"instances_{args.split}.json"
+    yaml_gt_path = resolve_dataset_dir(yaml_path) / f"instances_{args.split}.json"
+    gt_path = local_gt_path if local_gt_path.is_file() else yaml_gt_path
     if not gt_path.is_file():
-        raise FileNotFoundError(gt_path)
+        raise FileNotFoundError(
+            f"Could not find ground truth. Tried local path: {local_gt_path} and YAML path: {yaml_gt_path}"
+        )
     coco_gt = COCO(str(gt_path))
     predictions = json.loads(pred_path.read_text(encoding="utf-8"))
     result = summarize(coco_gt, predictions)
