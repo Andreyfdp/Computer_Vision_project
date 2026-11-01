@@ -53,20 +53,36 @@ def resolve_device(value):
 
 
 def load_dataset_config():
+    local_data_dir = (ROOT / "data" / "processed").resolve()
+    local_annotation = local_data_dir / f"instances_{ARGS.split}.json"
+    local_images = local_data_dir / "images" / ARGS.split
+
+    if local_annotation.is_file() and local_images.is_dir():
+        return local_data_dir, local_annotation, local_images
+
     if not DATA_CONFIG.is_file():
-        raise FileNotFoundError(f"Dataset configuration not found: {DATA_CONFIG}")
+        raise FileNotFoundError(
+            f"Dataset not found under {local_data_dir} and configuration not found: {DATA_CONFIG}"
+        )
+
     with DATA_CONFIG.open("r", encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
-    data_dir = Path(config["path"])
-    if not data_dir.is_absolute():
-        data_dir = (DATA_CONFIG.parent / data_dir).resolve()
-    annotation_file = data_dir / f"instances_{ARGS.split}.json"
-    image_dir = data_dir / "images" / ARGS.split
+
+    configured_data_dir = Path(config["path"])
+    if not configured_data_dir.is_absolute():
+        configured_data_dir = (DATA_CONFIG.parent / configured_data_dir).resolve()
+
+    annotation_file = configured_data_dir / f"instances_{ARGS.split}.json"
+    image_dir = configured_data_dir / "images" / ARGS.split
     if not annotation_file.is_file():
-        raise FileNotFoundError(f"COCO annotations not found: {annotation_file}")
+        raise FileNotFoundError(
+            f"COCO annotations not found. Checked {local_annotation} and {annotation_file}"
+        )
     if not image_dir.is_dir():
-        raise FileNotFoundError(f"Image directory not found: {image_dir}")
-    return data_dir, annotation_file, image_dir
+        raise FileNotFoundError(
+            f"Image directory not found. Checked {local_images} and {image_dir}"
+        )
+    return configured_data_dir, annotation_file, image_dir
 
 
 def build_id_maps(coco_gt):
