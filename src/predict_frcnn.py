@@ -33,10 +33,10 @@ def build_model():
 def main():
     args = parse_args()
     project_root = Path(__file__).resolve().parents[1]
-    images_dir = resolve_images_dir(project_root, args.split, args.images_dir)
+    images_dir = args.images_dir or resolve_images_dir(project_root)
     ann = project_root / f"data/processed/instances_{args.split}.json"
-    output = args.output if args.output.is_absolute() else project_root / args.output
-    output.parent.mkdir(parents=True, exist_ok=True)
+    output_path = args.output if args.output.is_absolute() else project_root / args.output
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     ds = GTSDBCocoDataset(images_dir, ann, train=False)
@@ -57,11 +57,11 @@ def main():
         for images, targets in loader:
             images = [img.to(device, non_blocking=True) for img in images]
             outputs = model(images)
-            for output, target in zip(outputs, targets):
+            for model_output, target in zip(outputs, targets):
                 image_id = int(target["image_id"].item())
-                boxes = output["boxes"].detach().cpu()
-                scores = output["scores"].detach().cpu()
-                labels = output["labels"].detach().cpu()
+                boxes = model_output["boxes"].detach().cpu()
+                scores = model_output["scores"].detach().cpu()
+                labels = model_output["labels"].detach().cpu()
                 keep = scores >= 0.001
                 for box, score, label in zip(boxes[keep], scores[keep], labels[keep]):
                     x1, y1, x2, y2 = box.tolist()
@@ -76,10 +76,10 @@ def main():
         torch.cuda.synchronize(device)
     elapsed = time.perf_counter() - start
 
-    with output.open("w", encoding="utf-8") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         json.dump(predictions, f)
 
-    print(f"Saved predictions: {output}")
+    print(f"Saved predictions: {output_path}")
     print(f"Images: {len(ds)}")
     print(f"Predictions: {len(predictions)}")
     print(f"Wall time: {elapsed:.3f} s")
